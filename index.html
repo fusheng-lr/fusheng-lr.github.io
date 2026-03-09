@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="作业扫码统计">
+
+  <!-- 移动端视口 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- iOS -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="作业扫码统计">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <link rel="icon" type="image/png" href="favicon.png"/>
+  <title>作业扫码统计</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6fa;
+    }
+  </style>
+
+  <!--
+    提前加载本地 ZXing 脚本，id 必须与 mobile_scanner 内部的 scriptId 一致：
+    'mobile-scanner-barcode-reader'
+    mobile_scanner 加载脚本前会先检查该 id 是否存在，存在则跳过 CDN 请求。
+    这样彻底消除对 unpkg.com 的跨域依赖，GitHub Pages 也能正常工作。
+  -->
+  <script
+    id="mobile-scanner-barcode-reader"
+    src="zxing-library.js"
+    type="application/javascript"
+  ></script>
+</head>
+<body>
+  <script src="flutter_bootstrap.js" async></script>
+
+  <!--
+    修复 mobile_scanner 5.x 在移动端浏览器不调用摄像头的问题：
+    mobile_scanner 创建的 <video> 元素缺少 playsinline、muted、autoplay 属性，
+    导致 iOS Safari 和移动端 Chrome 无法自动播放摄像头视频流。
+  -->
+  <script>
+    (function () {
+      function patchVideoElement(video) {
+        if (video._mobileScannerPatched) return;
+        video._mobileScannerPatched = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.setAttribute('muted', '');
+        video.muted = true;
+        video.autoplay = true;
+        if (video.srcObject && video.paused) {
+          video.play().catch(function () {});
+        }
+        var originalDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
+        if (originalDescriptor && originalDescriptor.set) {
+          var originalSet = originalDescriptor.set;
+          Object.defineProperty(video, 'srcObject', {
+            set: function (stream) {
+              originalSet.call(this, stream);
+              if (stream) {
+                var self = this;
+                setTimeout(function () {
+                  self.play().catch(function () {});
+                }, 0);
+              }
+            },
+            get: originalDescriptor.get,
+            configurable: true,
+          });
+        }
+      }
+
+      document.querySelectorAll('video').forEach(patchVideoElement);
+
+      var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+          mutation.addedNodes.forEach(function (node) {
+            if (node.nodeType !== 1) return;
+            if (node.tagName === 'VIDEO') patchVideoElement(node);
+            node.querySelectorAll && node.querySelectorAll('video').forEach(patchVideoElement);
+          });
+        });
+      });
+
+      observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    })();
+  </script>
+</body>
+</html>
