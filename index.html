@@ -1,91 +1,13 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <base href="/">
-
-  <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="作业扫码统计">
-
-  <!-- 移动端视口 -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-
-  <!-- iOS -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="作业扫码统计">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
-  <link rel="icon" type="image/png" href="favicon.png"/>
-  <title>作业扫码统计</title>
-  <link rel="manifest" href="manifest.json">
-
-  <style>
-    html, body {
-      height: 100%;
-      overflow: hidden;
-      margin: 0;
-      padding: 0;
-      background-color: #f4f6fa;
-    }
-  </style>
-
-  <!--
-    全局拦截 HTMLVideoElement.prototype.srcObject setter。
-    mobile_scanner 在调用 ZXing 的 attachStreamToVideo 时会给 video 赋 srcObject，
-    此时 video 可能还没有 playsinline / muted 属性（mobile_scanner_web.dart 中
-    _createVideoElement 没有设置这些属性），导致 iOS Safari 黑屏，移动 Chrome 无法播放。
-    通过 prototype 拦截，在 srcObject 被赋值之前同步补全必要属性，时机最早最可靠。
-  -->
-  <script>
-    (function () {
-      var proto = HTMLMediaElement.prototype;
-      var descriptor = Object.getOwnPropertyDescriptor(proto, 'srcObject');
-      if (!descriptor || !descriptor.set) return;
-
-      var originalSet = descriptor.set;
-      Object.defineProperty(proto, 'srcObject', {
-        configurable: true,
-        enumerable: descriptor.enumerable,
-        get: descriptor.get,
-        set: function (stream) {
-          if (stream && this.tagName === 'VIDEO') {
-            // 在 srcObject 赋值前确保这些属性就位，iOS Safari 必须如此
-            this.setAttribute('playsinline', '');
-            this.setAttribute('webkit-playsinline', '');
-            this.muted = true;
-            this.setAttribute('muted', '');
-            this.autoplay = true;
-          }
-          originalSet.call(this, stream);
-          // 赋值后立即尝试播放（Chrome 移动端在非用户交互下需要 muted+autoplay）
-          if (stream && this.tagName === 'VIDEO') {
-            var self = this;
-            self.play().catch(function () {
-              // 首次自动播放可能被阻止，等待 loadedmetadata 后重试
-              self.addEventListener('loadedmetadata', function () {
-                self.play().catch(function () {});
-              }, { once: true });
-            });
-          }
-        }
-      });
-    })();
-  </script>
-
-  <!--
-    提前加载本地 ZXing 脚本，id 必须与 mobile_scanner 内部的 scriptId 一致：
-    'mobile-scanner-barcode-reader'
-    mobile_scanner 检查到该 id 存在则跳过 CDN 请求，彻底消除对 unpkg.com 的跨域依赖。
-  -->
-  <script
-    id="mobile-scanner-barcode-reader"
-    src="zxing-library.js"
-    type="application/javascript"
-  ></script>
-</head>
-<body>
-  <script src="flutter_bootstrap.js" async></script>
-</body>
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>作业扫码统计</title>
+    <script type="module" crossorigin src="/assets/index-Bza5b2Rk.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-GsXjPG2_.css">
+  </head>
+  <body>
+    <div id="app"></div>
+  </body>
 </html>
