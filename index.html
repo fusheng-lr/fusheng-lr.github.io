@@ -32,10 +32,52 @@
   </style>
 
   <!--
+    全局拦截 HTMLVideoElement.prototype.srcObject setter。
+    mobile_scanner 在调用 ZXing 的 attachStreamToVideo 时会给 video 赋 srcObject，
+    此时 video 可能还没有 playsinline / muted 属性（mobile_scanner_web.dart 中
+    _createVideoElement 没有设置这些属性），导致 iOS Safari 黑屏，移动 Chrome 无法播放。
+    通过 prototype 拦截，在 srcObject 被赋值之前同步补全必要属性，时机最早最可靠。
+  -->
+  <script>
+    (function () {
+      var proto = HTMLMediaElement.prototype;
+      var descriptor = Object.getOwnPropertyDescriptor(proto, 'srcObject');
+      if (!descriptor || !descriptor.set) return;
+
+      var originalSet = descriptor.set;
+      Object.defineProperty(proto, 'srcObject', {
+        configurable: true,
+        enumerable: descriptor.enumerable,
+        get: descriptor.get,
+        set: function (stream) {
+          if (stream && this.tagName === 'VIDEO') {
+            // 在 srcObject 赋值前确保这些属性就位，iOS Safari 必须如此
+            this.setAttribute('playsinline', '');
+            this.setAttribute('webkit-playsinline', '');
+            this.muted = true;
+            this.setAttribute('muted', '');
+            this.autoplay = true;
+          }
+          originalSet.call(this, stream);
+          // 赋值后立即尝试播放（Chrome 移动端在非用户交互下需要 muted+autoplay）
+          if (stream && this.tagName === 'VIDEO') {
+            var self = this;
+            self.play().catch(function () {
+              // 首次自动播放可能被阻止，等待 loadedmetadata 后重试
+              self.addEventListener('loadedmetadata', function () {
+                self.play().catch(function () {});
+              }, { once: true });
+            });
+          }
+        }
+      });
+    })();
+  </script>
+
+  <!--
     提前加载本地 ZXing 脚本，id 必须与 mobile_scanner 内部的 scriptId 一致：
     'mobile-scanner-barcode-reader'
-    mobile_scanner 加载脚本前会先检查该 id 是否存在，存在则跳过 CDN 请求。
-    这样彻底消除对 unpkg.com 的跨域依赖，GitHub Pages 也能正常工作。
+    mobile_scanner 检查到该 id 存在则跳过 CDN 请求，彻底消除对 unpkg.com 的跨域依赖。
   -->
   <script
     id="mobile-scanner-barcode-reader"
@@ -45,61 +87,5 @@
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>
-
-  <!--
-    修复 mobile_scanner 5.x 在移动端浏览器不调用摄像头的问题：
-    mobile_scanner 创建的 <video> 元素缺少 playsinline、muted、autoplay 属性，
-    导致 iOS Safari 和移动端 Chrome 无法自动播放摄像头视频流。
-  -->
-  <script>
-    (function () {
-      function patchVideoElement(video) {
-        if (video._mobileScannerPatched) return;
-        video._mobileScannerPatched = true;
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', '');
-        video.setAttribute('muted', '');
-        video.muted = true;
-        video.autoplay = true;
-        if (video.srcObject && video.paused) {
-          video.play().catch(function () {});
-        }
-        var originalDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
-        if (originalDescriptor && originalDescriptor.set) {
-          var originalSet = originalDescriptor.set;
-          Object.defineProperty(video, 'srcObject', {
-            set: function (stream) {
-              originalSet.call(this, stream);
-              if (stream) {
-                var self = this;
-                setTimeout(function () {
-                  self.play().catch(function () {});
-                }, 0);
-              }
-            },
-            get: originalDescriptor.get,
-            configurable: true,
-          });
-        }
-      }
-
-      document.querySelectorAll('video').forEach(patchVideoElement);
-
-      var observer = new MutationObserver(function (mutations) {
-        mutations.forEach(function (mutation) {
-          mutation.addedNodes.forEach(function (node) {
-            if (node.nodeType !== 1) return;
-            if (node.tagName === 'VIDEO') patchVideoElement(node);
-            node.querySelectorAll && node.querySelectorAll('video').forEach(patchVideoElement);
-          });
-        });
-      });
-
-      observer.observe(document.body || document.documentElement, {
-        childList: true,
-        subtree: true,
-      });
-    })();
-  </script>
 </body>
 </html>
