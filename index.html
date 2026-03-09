@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>作业扫码统计</title>
+  <link rel="preconnect" href="https://unpkg.com">
+  <style>
+    :root {
+      --purple: #8443ff;
+      --deep-purple: #5227e9;
+      --light-purple: #c4b5ff;
+      --bg: #f4f6fa;
+      --card: #ffffff;
+      --muted: #7f7f90;
+      --border: #e5e7eb;
+      --green: #1bc47d;
+      --red: #f45b71;
+      --yellow: #ffc155;
+      --blue: #4b8cf9;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: #1f1f2f;
+    }
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 16px 14px 32px;
+    }
+    .top-btn {
+      width: 100%;
+      border: none;
+      border-radius: 18px;
+      padding: 18px 16px;
+      background: linear-gradient(120deg, #9f5aff, #5f3aff);
+      color: #fff;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 14px 30px rgba(110, 73, 255, 0.24);
+      cursor: pointer;
+    }
+    .top-btn input {
+      display: none;
+    }
+    .card {
+      background: var(--card);
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.03);
+      margin-top: 14px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .section-title .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+      background: var(--purple);
+      display: inline-block;
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .tabs.two-cols {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .tab {
+      padding: 14px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: #f8f8ff;
+      color: #666;
+      font-size: 17px;
+      font-weight: 600;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .tab.active {
+      background: linear-gradient(140deg, #a065ff, #612eff);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 12px 24px rgba(115, 73, 255, 0.32);
+    }
+    .scanner {
+      background: #0f1421;
+      border-radius: 18px;
+      padding: 14px;
+      border: 1px solid #273147;
+      box-shadow: inset 0 0 0 1px #11182b, 0 20px 40px rgba(15, 19, 35, 0.32);
+    }
+    .scanner-top {
+      color: #7ea0ff;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 14px;
+      border-radius: 16px;
+      background: rgba(80, 110, 255, 0.12);
+      margin-bottom: 12px;
+      font-size: 16px;
+    }
+    #qr-container {
+      position: relative;
+      width: 100%;
+      height: 420px;
+      background: radial-gradient(circle at center, rgba(90, 80, 140, 0.12), rgba(20, 24, 40, 0.82));
+      border-radius: 18px;
+      overflow: hidden;
+    }
+    .qr-overlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      border-radius: 16px;
+      border: 2px solid rgba(115, 86, 255, 0.5);
+      box-shadow: 0 0 0 1200px rgba(8, 10, 20, 0.45);
+    }
+    .qr-status {
+      color: #cfd7ff;
+      text-align: center;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .stat-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+    .stat-total {
+      color: #6f7490;
+      font-size: 15px;
+    }
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .stat-card {
+      background: #f8fbff;
+      border-radius: 14px;
+      padding: 12px 10px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    }
+    .stat-card span {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .stat-card .num {
+      font-size: 28px;
+      font-weight: 800;
+      color: #20254b;
+    }
+    .stat-card.green { background: #e3fbf2; color: var(--green); }
+    .stat-card.red { background: #ffe9ee; color: var(--red); }
+    .stat-card.yellow { background: #fff6e0; color: var(--yellow); }
+    .stat-card.blue { background: #e9f2ff; color: var(--blue); }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .chip {
+      background: #e8fff5;
+      color: #1da66f;
+      border-radius: 22px;
+      padding: 10px 12px;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      border: 1px solid rgba(23, 183, 115, 0.35);
+    }
+    .chip .close {
+      background: #fff;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      color: #1da66f;
+      font-weight: 800;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+    }
+    .toast {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: #f1edff;
+      color: #5b39ff;
+      font-size: 14px;
+    }
+    .error {
+      background: #ffecec;
+      color: #e23a56;
+    }
+    .tip {
+      margin-top: 10px;
+      color: #666;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+    @media (max-width: 640px) {
+      .stat-grid { grid-template-columns: repeat(2, 1fr); }
+      #qr-container { height: 360px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script src="https://unpkg.com/vue@3.4.21/dist/vue.global.prod.js"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    const { createApp, ref, reactive, computed, onMounted, onBeforeUnmount } = Vue;
+
+    createApp({
+      setup() {
+        const total = ref(0);
+        const mode = ref("mobile");
+        const currentClass = ref("5班");
+        const classesData = ref({});
+        const allStudents = ref([]);
+        const submitted = ref([]);
+        const unsubmitted = ref([]);
+        const perfectIds = ref(["80517", "80518"]);
+        const correctedIds = ref(["郑杰"]);
+        const scannedSet = reactive(new Set());
+        const message = ref("正在加载学生名单...");
+        const error = ref("");
+        const qr = ref(null);
+
+        const pendingCount = computed(() => {
+          return unsubmitted.value.length;
+        });
+
+        const perfectCount = computed(() =>
+          perfectIds.value.filter(id => scannedSet.has(id)).length
+        );
+
+        const correctedCount = computed(() =>
+          correctedIds.value.filter(id => scannedSet.has(id)).length
+        );
+
+        const loadStudents = async () => {
+          try {
+            const response = await fetch('./students.json');
+            const data = await response.json();
+            classesData.value = data.classes;
+            // 加载当前班级的学生数据
+            loadClassData(currentClass.value);
+          } catch (err) {
+            error.value = "加载学生名单失败：" + (err?.message || err);
+          }
+        };
+
+        const loadClassData = (className) => {
+          const names = classesData.value[className] || [];
+          const students = names.map(name => ({
+            id: name,   // 使用姓名作为唯一标识
+            name
+          }));
+          allStudents.value = students;
+          unsubmitted.value = [...students];
+          submitted.value = [];
+          scannedSet.clear();
+          total.value = students.length;
+          message.value = "扫码中...";
+        };
+
+        const switchClass = (className) => {
+          if (currentClass.value === className) return;
+          
+          // 切换班级，重置所有数据
+          currentClass.value = className;
+          submitted.value = [];
+          scannedSet.clear();
+          loadClassData(className);
+          error.value = "";
+          message.value = `已切换到${className}，数据已重置`;
+        };
+
+        const startScan = async () => {
+          if (qr.value) return;
+          const targetId = "qr-container";
+          qr.value = new Html5Qrcode(targetId, { verbose: false });
+          // 增大扫描区域：使用容器宽度的90%，最大380px
+          const container = document.getElementById(targetId);
+          const containerWidth = container?.offsetWidth || 400;
+          const qrboxSize = Math.min(containerWidth * 0.9, 380);
+          const config = { 
+            fps: 10, 
+            qrbox: { width: qrboxSize, height: qrboxSize }
+          };
+          try {
+            await qr.value.start(
+              { facingMode: "environment" },
+              config,
+              onScanSuccess,
+              () => {}
+            );
+          } catch (err) {
+            error.value = err?.message || "无法打开摄像头，请检查权限（需 https 或 localhost）";
+          }
+        };
+
+        const stopScan = async () => {
+          if (qr.value) {
+            await qr.value.stop();
+            await qr.value.clear();
+            qr.value = null;
+          }
+        };
+
+        const onScanSuccess = text => {
+          const name = (text || "").trim();
+          if (!name) return;
+
+          const studentId = name; // 姓名即唯一标识
+
+          // 检查是否已提交
+          if (scannedSet.has(studentId)) {
+            message.value = `${name} 已交过，继续扫描`;
+            flash();
+            return;
+          }
+
+          // 从未提交列表中移除
+          const studentIndex = unsubmitted.value.findIndex(s => s.id === studentId);
+          if (studentIndex !== -1) {
+            const student = unsubmitted.value.splice(studentIndex, 1)[0];
+            scannedSet.add(studentId);
+            submitted.value.unshift({
+              id: student.id,
+              name: student.name,
+              time: new Date().toLocaleTimeString()
+            });
+            message.value = `录入成功：${student.name}`;
+          } else {
+            // 不在当前名单中，仍然记录下来
+            scannedSet.add(studentId);
+            submitted.value.unshift({
+              id: studentId,
+              name,
+              time: new Date().toLocaleTimeString()
+            });
+            message.value = `录入成功：${name}`;
+          }
+        };
+
+        const flash = () => {
+          const el = document.getElementById("qr-container");
+          if (!el) return;
+          el.style.boxShadow = "0 0 0 4px rgba(255,255,255,0.4)";
+          setTimeout(() => {
+            el.style.boxShadow = "";
+          }, 160);
+        };
+
+        const removeSubmit = id => {
+          const submitIndex = submitted.value.findIndex(s => s.id === id);
+          if (submitIndex !== -1) {
+            const student = submitted.value.splice(submitIndex, 1)[0];
+            scannedSet.delete(id);
+            // 如果在原始名单中，加回到未提交列表
+            const originalStudent = allStudents.value.find(s => s.id === id);
+            if (originalStudent) {
+              unsubmitted.value.push(originalStudent);
+            }
+          }
+        };
+
+        const handleImport = async evt => {
+          const file = evt.target.files?.[0];
+          if (!file) return;
+          try {
+            const text = await file.text();
+            const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+            const newStudents = lines.map(name => ({
+              id: name,
+              name
+            }));
+            allStudents.value.push(...newStudents);
+            unsubmitted.value.push(...newStudents);
+            total.value = allStudents.value.length;
+            message.value = "名单导入完成";
+          } catch (err) {
+            error.value = "导入失败：" + (err?.message || err);
+          } finally {
+            evt.target.value = "";
+          }
+        };
+
+        onMounted(() => {
+          loadStudents();
+          startScan();
+        });
+
+        onBeforeUnmount(() => {
+          stopScan();
+        });
+
+        return {
+          total,
+          mode,
+          currentClass,
+          submitted,
+          unsubmitted,
+          pendingCount,
+          perfectCount,
+          correctedCount,
+          message,
+          error,
+          removeSubmit,
+          handleImport,
+          switchClass
+        };
+      },
+      template: `
+        <div class="page">
+          <label class="top-btn">
+            ⬆ 导入名单
+            <input type="file" accept=".txt,.csv" @change="handleImport" />
+          </label>
+
+          <div class="card">
+            <div class="section-title">
+              <span class="dot"></span>
+              选择班级
+            </div>
+            <div class="tabs two-cols">
+              <div class="tab" :class="{active: currentClass === '5班'}" @click="switchClass('5班')">5班</div>
+              <div class="tab" :class="{active: currentClass === '6班'}" @click="switchClass('6班')">6班</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="section-title">
+              <span class="dot"></span>
+              扫码模式
+            </div>
+            <div class="tabs">
+              <div class="tab" :class="{active: mode === 'mobile'}" @click="mode = 'mobile'">手机扫码</div>
+              <div class="tab" :class="{active: mode === 'gun'}" @click="mode = 'gun'">扫码枪</div>
+              <div class="tab" :class="{active: mode === 'backup'}" @click="mode = 'backup'">备用</div>
+            </div>
+          </div>
+
+          <div class="card scanner">
+            <div class="scanner-top">🔍 扫描中...</div>
+            <div id="qr-container">
+              <div class="qr-overlay"></div>
+            </div>
+            <div class="qr-status">{{ message }}</div>
+            <div v-if="error" class="toast error">{{ error }}</div>
+            <div class="tip">提示：需在 https 域名或本地环境使用，摄像头将保持打开以连续扫描，重复二维码会提示“已交过”后继续下一张。</div>
+          </div>
+
+          <div class="card">
+            <div class="stat-header">
+              <div class="section-title">
+                <span class="dot"></span>
+                提交统计
+              </div>
+              <div class="stat-total">共 {{ total }} 人</div>
+            </div>
+            <div class="stat-grid">
+              <div class="stat-card green">
+                <span>已交</span>
+                <div class="num">{{ submitted.length }}</div>
+              </div>
+              <div class="stat-card red">
+                <span>未交</span>
+                <div class="num">{{ pendingCount }}</div>
+              </div>
+              <div class="stat-card yellow">
+                <span>满分</span>
+                <div class="num">{{ perfectCount }}</div>
+              </div>
+              <div class="stat-card blue">
+                <span>已订正</span>
+                <div class="num">{{ correctedCount }}</div>
+              </div>
+            </div>
+
+            <div class="chips">
+              <div v-for="item in submitted" :key="item.id" class="chip">
+                {{ item.name }}
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="stat-header">
+              <div class="section-title">
+                <span class="dot"></span>
+                未提交名单
+              </div>
+              <div class="stat-total">剩余 {{ unsubmitted.length }} 人</div>
+            </div>
+            <div class="chips">
+              <div v-for="item in unsubmitted" :key="item.id" class="chip" style="background: #fff0f0; color: #e74c3c; border-color: rgba(231, 76, 60, 0.35); cursor: default;">
+                {{ item.name }}
+              </div>
+            </div>
+          </div>
+        </div>
+      `
+    }).mount("#app");
+  </script>
+</body>
+</html>
