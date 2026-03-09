@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="作业扫码统计">
+
+  <!-- 移动端视口设置，防止页面缩放异常 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="作业扫码统计">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>作业扫码统计</title>
+  <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* 防止移动端页面弹性滚动影响体验 */
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f6fa;
+    }
+  </style>
+</head>
+<body>
+  <!--
+    注册自定义 Service Worker，为 GitHub Pages 等静态托管平台注入
+    Cross-Origin-Opener-Policy / Cross-Origin-Embedder-Policy 响应头，
+    使页面进入 crossOriginIsolated 模式，解除摄像头调用限制。
+    必须在 Flutter 加载前完成注册，否则第一次加载时头部尚未生效。
+  -->
+  <script>
+    (function () {
+      if ('serviceWorker' in navigator) {
+        // 注册 camera-sw.js，注册完成后再启动 Flutter
+        navigator.serviceWorker
+          .register('./camera-sw.js', { scope: './' })
+          .then(function (reg) {
+            // SW 已激活，直接加载 Flutter
+            if (reg.active) {
+              loadFlutter();
+              return;
+            }
+            // 等待 SW 激活完成后再加载
+            var worker = reg.installing || reg.waiting;
+            if (worker) {
+              worker.addEventListener('statechange', function () {
+                if (worker.state === 'activated') {
+                  // 首次安装需要刷新页面让 SW 的 fetch 拦截生效
+                  window.location.reload();
+                }
+              });
+            } else {
+              loadFlutter();
+            }
+          })
+          .catch(function () {
+            // SW 注册失败（如 localhost http），直接加载 Flutter
+            loadFlutter();
+          });
+      } else {
+        // 不支持 SW 的浏览器直接加载
+        loadFlutter();
+      }
+
+      function loadFlutter() {
+        var script = document.createElement('script');
+        script.src = 'flutter_bootstrap.js';
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    })();
+  </script>
+
+  <!--
+    修复 mobile_scanner 5.x 在移动端浏览器不调用摄像头的问题：
+    mobile_scanner 创建的 <video> 元素缺少 playsinline、muted、autoplay 属性，
+    导致 iOS Safari 和移动端 Chrome 无法自动播放摄像头视频流。
+    通过 MutationObserver 监听 DOM 变化，自动为所有新增的 <video> 元素补充必要属性。
+  -->
+  <script>
+    (function () {
+      function patchVideoElement(video) {
+        if (video._mobileScannerPatched) return;
+        video._mobileScannerPatched = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.setAttribute('muted', '');
+        video.muted = true;
+        video.autoplay = true;
+        // 如果视频流已就绪但未播放，立即触发播放
+        if (video.srcObject && video.paused) {
+          video.play().catch(function () {});
+        }
+        // 监听 srcObject 变化，绑定后立即尝试播放
+        var originalDescriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'srcObject');
+        if (originalDescriptor && originalDescriptor.set) {
+          var originalSet = originalDescriptor.set;
+          Object.defineProperty(video, 'srcObject', {
+            set: function (stream) {
+              originalSet.call(this, stream);
+              if (stream) {
+                var self = this;
+                setTimeout(function () {
+                  self.play().catch(function () {});
+                }, 0);
+              }
+            },
+            get: originalDescriptor.get,
+            configurable: true,
+          });
+        }
+      }
+
+      // 处理页面上已存在的 video 元素
+      document.querySelectorAll('video').forEach(patchVideoElement);
+
+      // 监听后续动态插入的 video 元素
+      var observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+          mutation.addedNodes.forEach(function (node) {
+            if (node.nodeType !== 1) return;
+            if (node.tagName === 'VIDEO') {
+              patchVideoElement(node);
+            }
+            node.querySelectorAll && node.querySelectorAll('video').forEach(patchVideoElement);
+          });
+        });
+      });
+
+      observer.observe(document.body || document.documentElement, {
+        childList: true,
+        subtree: true,
+      });
+    })();
+  </script>
+</body>
+</html>
